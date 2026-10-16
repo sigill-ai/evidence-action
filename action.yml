@@ -1,5 +1,5 @@
 name: Sigill Evidence
-description: Timestamp and seal build artifacts with Sigill — RFC 3161 timestamps and CAdES seals. Only digests leave the runner; no secrets needed.
+description: "Timestamp and seal build artifacts with Sigill (RFC 3161, CAdES). Only digests leave the runner; no secrets."
 author: Sigill
 branding:
   icon: shield
