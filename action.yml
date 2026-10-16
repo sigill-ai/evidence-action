@@ -1,0 +1,42 @@
+name: Sigill Evidence
+description: Timestamp and seal build artifacts with Sigill — RFC 3161 timestamps and CAdES seals. Only digests leave the runner; no secrets needed.
+author: Sigill
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  files:
+    description: "Files to timestamp or seal — one glob per line. Directories and existing .tsr/.p7s files are skipped."
+    required: true
+  mode:
+    description: "'timestamp' (RFC 3161 .tsr) or 'seal' (detached CAdES .p7s with the timestamp embedded)."
+    default: timestamp
+  certificate:
+    description: "Seal certificate ID (Sigill → Settings → Seal certificates → Copy ID). Empty = your organisation's only certificate, or the Sigill Platform Seal when you have none."
+    default: ''
+  pqc:
+    description: "Seals only: add a post-quantum ML-DSA-87 signature alongside the classic one (hybrid seal)."
+    default: 'false'
+  attach-to-release:
+    description: "Upload the .tsr/.p7s files to this run's GitHub release, next to the files they cover. Needs 'contents: write'."
+    default: 'false'
+  github-token:
+    description: "Token for attaching files to the release."
+    default: ${{ github.token }}
+  api-url:
+    description: "Sigill API base URL."
+    default: https://api.sigill.ai
+  app-url:
+    description: "Sigill app base URL, for links to the evidence."
+    default: https://sigill.ai
+
+outputs:
+  evidence:
+    description: "JSON array, one entry per file — file, sha256, evidenceFile, evidenceId, url, certificateId, pqc."
+  evidence-files:
+    description: "The written .tsr/.p7s paths, one per line."
+
+runs:
+  using: node24
+  main: dist/index.js
