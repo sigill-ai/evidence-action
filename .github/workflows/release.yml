@@ -1,0 +1,32 @@
+# Every release of this action is sealed by the action itself: the bundle GitHub
+# runs (dist/index.js) and its manifest (action.yml), as of the release tag.
+# Verify: download both files at the tag and check them against the .p7s on the
+# release at https://sigill.ai/verify.
+name: Seal release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    environment: release-signing
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Collect the released files
+        run: |
+          mkdir release
+          cp dist/index.js release/index.js
+          cp action.yml release/action.yml
+      - uses: ./
+        with:
+          files: release/*
+          mode: seal
+          pqc: true
+          attach-to-release: true

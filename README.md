@@ -87,3 +87,7 @@ That these exact bytes existed at the timestamp's time, that your organisation (
 ## License
 
 Apache-2.0
+
+## Verify this action
+
+Every release is sealed by this action itself. The release page carries `index.js.p7s` and `action.yml.p7s`: Sigill seals (CAdES with an embedded timestamp and an ML-DSA-87 signature) over `dist/index.js` and `action.yml` exactly as they are at the release tag — the files GitHub runs when you use the tag. Download both files at the tag and check them at [sigill.ai/verify](https://sigill.ai/verify). Pin a full commit SHA if you want the strongest guarantee.
