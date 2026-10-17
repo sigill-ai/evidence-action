@@ -107,3 +107,34 @@ test('the Sigill token is handed to the log masker; filenames are escaped', asyn
   assert.deepEqual(masked, ['secret-ci-token']);
   assert.equal(escapeHtml('<img src=x onerror=alert(1)>.tgz'), '&lt;img src=x onerror=alert(1)&gt;.tgz');
 });
+
+test('qualified: requested explicitly, and the step fails closed when it is not qualified', async () => {
+  const p7s = qualified => () => new Response(Buffer.from('p7s'), {
+    status: 200, headers: { 'X-Seal-Operation-Id': 'op-1', 'X-Seal-Qualified': qualified },
+  });
+  let sealQualified = 'true', stampQualified = true;
+  const api = fakeApi({
+    '/api/ci/github/token': () => json(200, { accessToken: 't' }),
+    '/seal/sign-hash': (i, calls) => p7s(sealQualified)(i, calls),
+    '/tsa/stamp-hash': () => json(200, { transactionId: 'tx', tsrBase64: 'dHNy', qualified: stampQualified }),
+  });
+  const c = new SigillClient({ apiUrl: 'https://x', getIdToken: async () => 'o', fetch: api.fetch });
+
+  const s = await c.seal({ sha256: 'aa', label: 'pkg.whl', pqc: false, qualified: true });
+  assert.equal(api.calls[1].body.qualified, true);
+  assert.equal(s.qualified, true);
+  const t = await c.timestamp({ sha256: 'aa', label: 'pkg.whl', qualified: true });
+  assert.equal(api.calls[2].body.qualified, true);
+  assert.equal(t.qualified, true);
+
+  // The API seals without a timestamp when the qualified service fails: never accept that.
+  sealQualified = 'false';
+  await assert.rejects(c.seal({ sha256: 'aa', label: 'pkg.whl', qualified: true }), e => e.code === 'not_qualified' && /pkg\.whl/.test(e.message));
+  stampQualified = false;
+  await assert.rejects(c.timestamp({ sha256: 'aa', label: 'pkg.whl', qualified: true }), e => e.code === 'not_qualified');
+
+  // Not requested: the field is not sent, and a standard timestamp is fine.
+  const plain = await c.seal({ sha256: 'aa', label: 'x', pqc: false });
+  assert.equal('qualified' in api.calls.at(-1).body, false);
+  assert.equal(plain.qualified, false);
+});

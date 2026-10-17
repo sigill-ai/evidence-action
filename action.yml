@@ -18,6 +18,9 @@ inputs:
   pqc:
     description: "Seals only: post-quantum hybrid — an ML-DSA-87 signature strengthens the classic seal."
     default: 'false'
+  qualified:
+    description: "Use a qualified timestamp (eIDAS) — for seals, the timestamp embedded in the seal. Fails the step, writing nothing, if Sigill cannot return one. Business and Scale plans, or trial credits."
+    default: 'false'
   attach-to-release:
     description: "Upload the .tsr/.p7s files to this run's GitHub release, next to the files they cover. Needs 'contents: write'."
     default: 'false'
@@ -33,7 +36,7 @@ inputs:
 
 outputs:
   evidence:
-    description: "JSON array, one entry per file — file, sha256, evidenceFile, evidenceId, url, certificateId, pqc."
+    description: "JSON array, one entry per file — file, sha256, evidenceFile, evidenceId, url, certificateId, pqc, qualified."
   evidence-files:
     description: "The written .tsr/.p7s paths, one per line."
 

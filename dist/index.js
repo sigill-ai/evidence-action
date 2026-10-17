@@ -23130,11 +23130,15 @@ var SigillClient = class {
     });
   }
   /** RFC 3161 timestamp of a SHA-256 digest. Returns the .tsr bytes and the evidence id. */
-  async timestamp({ sha256, label }) {
-    const res = await this.post("/tsa/stamp-hash", { hashHex: sha256, label });
+  async timestamp({ sha256, label, qualified = false }) {
+    const req = { hashHex: sha256, label };
+    if (qualified) req.qualified = true;
+    const res = await this.post("/tsa/stamp-hash", req);
     if (!res.ok) await fail(res);
     const body = await res.json();
+    if (qualified && body.qualified !== true) throw notQualified(label);
     return {
+      qualified: body.qualified === true,
       bytes: Buffer.from(body.tsrBase64, "base64"),
       evidenceId: body.transactionId ?? null,
       genTime: body.genTime ?? null,
@@ -23142,13 +23146,17 @@ var SigillClient = class {
     };
   }
   /** Detached CAdES seal (timestamp embedded). Returns the .p7s bytes and ids. */
-  async seal({ sha256, sha512, label, certificate, pqc }) {
+  async seal({ sha256, sha512, label, certificate, pqc, qualified = false }) {
     const req = { hashHex: sha256, label, pqc: !!pqc };
+    if (qualified) req.qualified = true;
     if (pqc) req.hashHex512 = sha512;
     if (certificate) req.certificateId = certificate;
     const res = await this.post("/seal/sign-hash", req);
     if (!res.ok) await fail(res);
+    const isQualified = (res.headers.get("x-seal-qualified") ?? "").toLowerCase() === "true";
+    if (qualified && !isQualified) throw notQualified(label);
     return {
+      qualified: isQualified,
       bytes: Buffer.from(await res.arrayBuffer()),
       evidenceId: res.headers.get("x-seal-operation-id"),
       certificateId: res.headers.get("x-seal-certificate-id"),
@@ -23156,6 +23164,11 @@ var SigillClient = class {
     };
   }
 };
+function notQualified(label) {
+  return Object.assign(new Error(
+    `Sigill did not return a qualified timestamp for ${label ?? "the file"}. No evidence file was written. Qualified timestamps need the Business or Scale plan (or trial credits) and an available qualified service \u2014 re-run, or set qualified: false.`
+  ), { code: "not_qualified" });
+}
 function evidenceUrl(appUrl, mode, evidenceId) {
   if (!evidenceId) return null;
   const base = appUrl.replace(/\/+$/, "");
@@ -23207,6 +23220,7 @@ async function run() {
   if (!["timestamp", "seal"].includes(mode)) throw new Error(`mode must be 'timestamp' or 'seal', not '${mode}'.`);
   const pqc = bool("pqc");
   if (pqc && mode !== "seal") throw new Error("pqc applies to seals: set mode: seal.");
+  const qualified = bool("qualified");
   const certificate = getInput("certificate").trim();
   const attachToRelease = bool("attach-to-release");
   const apiUrl = getInput("api-url") || "https://api.sigill.ai";
@@ -23222,17 +23236,17 @@ async function run() {
   for (const file of files) {
     const name = basename3(file);
     const { sha256, sha512 } = await hashFile(file, { sha512: pqc });
-    const out = mode === "seal" ? await client.seal({ sha256, sha512, label: name, certificate, pqc }) : await client.timestamp({ sha256, label: name });
+    const out = mode === "seal" ? await client.seal({ sha256, sha512, label: name, certificate, pqc, qualified }) : await client.timestamp({ sha256, label: name, qualified });
     const evidenceFile = `${file}.${mode === "seal" ? "p7s" : "tsr"}`;
     writeFileSync(evidenceFile, out.bytes);
     if (release) await attach(release, evidenceFile);
     const url = evidenceUrl(appUrl, mode, out.evidenceId);
-    results.push({ file, sha256, evidenceFile, evidenceId: out.evidenceId, url, certificateId: out.certificateId ?? null, pqc: !!out.pqc });
+    results.push({ file, sha256, evidenceFile, evidenceId: out.evidenceId, url, certificateId: out.certificateId ?? null, pqc: !!out.pqc, qualified: !!out.qualified });
     info(`\u2713 ${name} \u2192 ${basename3(evidenceFile)}${url ? `  ${url}` : ""}`);
   }
   setOutput("evidence", JSON.stringify(results));
   setOutput("evidence-files", results.map((r) => r.evidenceFile).join("\n"));
-  const kind = mode === "seal" ? pqc ? "Seal (CAdES + ML-DSA-87)" : "Seal (CAdES)" : "Timestamp (RFC 3161)";
+  const kind = (mode === "seal" ? pqc ? "Seal (CAdES + ML-DSA-87)" : "Seal (CAdES)" : "Timestamp (RFC 3161)") + (qualified ? " \xB7 qualified timestamp (eIDAS)" : "");
   await summary.addHeading("Sigill evidence", 3).addRaw(`${plural(results.length, "file")} \xB7 ${kind}${release ? " \xB7 attached to the release" : ""}. Only digests left the runner.`, true).addTable([
     [{ data: "File", header: true }, { data: "SHA-256", header: true }, { data: "Evidence", header: true }],
     ...results.map((r) => [

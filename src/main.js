@@ -52,6 +52,7 @@ async function run() {
   if (!['timestamp', 'seal'].includes(mode)) throw new Error(`mode must be 'timestamp' or 'seal', not '${mode}'.`);
   const pqc = bool('pqc');
   if (pqc && mode !== 'seal') throw new Error("pqc applies to seals: set mode: seal.");
+  const qualified = bool('qualified');
   const certificate = core.getInput('certificate').trim();
   const attachToRelease = bool('attach-to-release');
   const apiUrl = core.getInput('api-url') || 'https://api.sigill.ai';
@@ -72,20 +73,21 @@ async function run() {
     const name = basename(file);
     const { sha256, sha512 } = await hashFile(file, { sha512: pqc });
     const out = mode === 'seal'
-      ? await client.seal({ sha256, sha512, label: name, certificate, pqc })
-      : await client.timestamp({ sha256, label: name });
+      ? await client.seal({ sha256, sha512, label: name, certificate, pqc, qualified })
+      : await client.timestamp({ sha256, label: name, qualified });
     const evidenceFile = `${file}.${mode === 'seal' ? 'p7s' : 'tsr'}`;
     writeFileSync(evidenceFile, out.bytes);
     if (release) await attach(release, evidenceFile);
     const url = evidenceUrl(appUrl, mode, out.evidenceId);
-    results.push({ file, sha256, evidenceFile, evidenceId: out.evidenceId, url, certificateId: out.certificateId ?? null, pqc: !!out.pqc });
+    results.push({ file, sha256, evidenceFile, evidenceId: out.evidenceId, url, certificateId: out.certificateId ?? null, pqc: !!out.pqc, qualified: !!out.qualified });
     core.info(`✓ ${name} → ${basename(evidenceFile)}${url ? `  ${url}` : ''}`);
   }
 
   core.setOutput('evidence', JSON.stringify(results));
   core.setOutput('evidence-files', results.map(r => r.evidenceFile).join('\n'));
 
-  const kind = mode === 'seal' ? (pqc ? 'Seal (CAdES + ML-DSA-87)' : 'Seal (CAdES)') : 'Timestamp (RFC 3161)';
+  const kind = (mode === 'seal' ? (pqc ? 'Seal (CAdES + ML-DSA-87)' : 'Seal (CAdES)') : 'Timestamp (RFC 3161)')
+    + (qualified ? ' · qualified timestamp (eIDAS)' : '');
   await core.summary
     .addHeading('Sigill evidence', 3)
     .addRaw(`${plural(results.length, 'file')} · ${kind}${release ? ' · attached to the release' : ''}. Only digests left the runner.`, true)

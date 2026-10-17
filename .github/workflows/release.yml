@@ -29,4 +29,5 @@ jobs:
           files: release/*
           mode: seal
           pqc: true
+          qualified: true
           attach-to-release: true
