@@ -106,11 +106,15 @@ export class SigillClient {
   }
 
   /** RFC 3161 timestamp of a SHA-256 digest. Returns the .tsr bytes and the evidence id. */
-  async timestamp({ sha256, label }) {
-    const res = await this.post('/tsa/stamp-hash', { hashHex: sha256, label });
+  async timestamp({ sha256, label, qualified = false }) {
+    const req = { hashHex: sha256, label };
+    if (qualified) req.qualified = true;
+    const res = await this.post('/tsa/stamp-hash', req);
     if (!res.ok) await fail(res);
     const body = await res.json();
+    if (qualified && body.qualified !== true) throw notQualified(label);
     return {
+      qualified: body.qualified === true,
       bytes: Buffer.from(body.tsrBase64, 'base64'),
       evidenceId: body.transactionId ?? null,
       genTime: body.genTime ?? null,
@@ -119,19 +123,30 @@ export class SigillClient {
   }
 
   /** Detached CAdES seal (timestamp embedded). Returns the .p7s bytes and ids. */
-  async seal({ sha256, sha512, label, certificate, pqc }) {
+  async seal({ sha256, sha512, label, certificate, pqc, qualified = false }) {
     const req = { hashHex: sha256, label, pqc: !!pqc };
+    if (qualified) req.qualified = true;
     if (pqc) req.hashHex512 = sha512;
     if (certificate) req.certificateId = certificate;
     const res = await this.post('/seal/sign-hash', req);
     if (!res.ok) await fail(res);
+    const isQualified = (res.headers.get('x-seal-qualified') ?? '').toLowerCase() === 'true';
+    // Fail closed: a seal whose qualified timestamp could not be embedded is
+    // not what was asked for, and must never be shipped as if it were.
+    if (qualified && !isQualified) throw notQualified(label);
     return {
+      qualified: isQualified,
       bytes: Buffer.from(await res.arrayBuffer()),
       evidenceId: res.headers.get('x-seal-operation-id'),
       certificateId: res.headers.get('x-seal-certificate-id'),
       pqc: (res.headers.get('x-seal-pqc') ?? '').toLowerCase() === 'true' || !!pqc,
     };
   }
+}
+
+function notQualified(label) {
+  return Object.assign(new Error(
+    `Sigill did not return a qualified timestamp for ${label ?? 'the file'}. No evidence file was written. Qualified timestamps need the Business or Scale plan (or trial credits) and an available qualified service — re-run, or set qualified: false.`), { code: 'not_qualified' });
 }
 
 /** Link to the evidence record in Sigill (seals and timestamps live under one route). */

@@ -1,6 +1,6 @@
 {
   "name": "evidence-action",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Timestamp and seal build artifacts with Sigill from GitHub Actions — only digests leave the runner.",
   "license": "Apache-2.0",

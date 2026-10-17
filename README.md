@@ -57,6 +57,7 @@ jobs:
           attach-to-release: true
           # certificate: <id>     # Settings → Seal certificates → Copy ID
           # pqc: true             # post-quantum hybrid: ML-DSA-87 strengthens the seal
+          # qualified: true       # qualified timestamp (eIDAS); fails the step if not available
 ```
 
 Each asset ships with its `.p7s` on the release. Anyone can verify it at [sigill.ai/verify](https://sigill.ai/verify) without a Sigill account, or with any CAdES validator (checking the post-quantum part needs ML-DSA support).
@@ -69,13 +70,14 @@ Each asset ships with its `.p7s` on the release. Anyone can verify it at [sigill
 | `mode` | `timestamp` | `timestamp` (`.tsr`) or `seal` (detached CAdES `.p7s` with the timestamp embedded). |
 | `certificate` | your only certificate, else the Sigill Platform Seal | Seal certificate ID. |
 | `pqc` | `false` | Seals: post-quantum hybrid — an ML-DSA-87 signature strengthens the classic seal, so it stays trustworthy once quantum computers can break classic signatures. |
+| `qualified` | `false` | Qualified timestamp (eIDAS) — for seals, the one embedded in the seal. If Sigill cannot return a qualified timestamp the step fails and writes no evidence file, so a release is never shipped with less than you asked for. Business and Scale plans, or trial credits. |
 | `attach-to-release` | `false` | Upload the evidence files to this run's release. Needs `contents: write`. |
 
 ## Outputs
 
 | Output | |
 |---|---|
-| `evidence` | JSON array: `file`, `sha256`, `evidenceFile`, `evidenceId`, `url`, `certificateId`, `pqc`. |
+| `evidence` | JSON array: `file`, `sha256`, `evidenceFile`, `evidenceId`, `url`, `certificateId`, `pqc`, `qualified`. |
 | `evidence-files` | The written `.tsr`/`.p7s` paths, one per line. |
 
 The job summary lists every file with a link to its evidence in Sigill.
