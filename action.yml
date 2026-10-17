@@ -16,7 +16,7 @@ inputs:
     description: "Seal certificate ID (Sigill → Settings → Seal certificates → Copy ID). Empty = your organisation's only certificate, or the Sigill Platform Seal when you have none."
     default: ''
   pqc:
-    description: "Seals only: add a post-quantum ML-DSA-87 signature alongside the classic one (hybrid seal)."
+    description: "Seals only: post-quantum hybrid — an ML-DSA-87 signature strengthens the classic seal."
     default: 'false'
   attach-to-release:
     description: "Upload the .tsr/.p7s files to this run's GitHub release, next to the files they cover. Needs 'contents: write'."

@@ -56,10 +56,10 @@ jobs:
           mode: seal
           attach-to-release: true
           # certificate: <id>     # Settings → Seal certificates → Copy ID
-          # pqc: true             # add an ML-DSA-87 signature (hybrid seal)
+          # pqc: true             # post-quantum hybrid: ML-DSA-87 strengthens the seal
 ```
 
-Each asset ships with its `.p7s` on the release. Anyone can verify it at [sigill.ai/verify](https://sigill.ai/verify) without a Sigill account, or with any CAdES validator (the post-quantum signature needs ML-DSA support).
+Each asset ships with its `.p7s` on the release. Anyone can verify it at [sigill.ai/verify](https://sigill.ai/verify) without a Sigill account, or with any CAdES validator (checking the post-quantum part needs ML-DSA support).
 
 ## Inputs
 
@@ -68,7 +68,7 @@ Each asset ships with its `.p7s` on the release. Anyone can verify it at [sigill
 | `files` | — | Files to timestamp or seal, one glob per line. Existing `.tsr`/`.p7s` files are skipped. |
 | `mode` | `timestamp` | `timestamp` (`.tsr`) or `seal` (detached CAdES `.p7s` with the timestamp embedded). |
 | `certificate` | your only certificate, else the Sigill Platform Seal | Seal certificate ID. |
-| `pqc` | `false` | Seals: add a post-quantum ML-DSA-87 signature alongside the classic one. |
+| `pqc` | `false` | Seals: post-quantum hybrid — an ML-DSA-87 signature strengthens the classic seal, so it stays trustworthy once quantum computers can break classic signatures. |
 | `attach-to-release` | `false` | Upload the evidence files to this run's release. Needs `contents: write`. |
 
 ## Outputs
@@ -90,4 +90,4 @@ Apache-2.0
 
 ## Verify this action
 
-Every release is sealed by this action itself. The release page carries `index.js.p7s` and `action.yml.p7s`: Sigill seals (CAdES with an embedded timestamp and an ML-DSA-87 signature) over `dist/index.js` and `action.yml` exactly as they are at the release tag — the files GitHub runs when you use the tag. Download both files at the tag and check them at [sigill.ai/verify](https://sigill.ai/verify). Pin a full commit SHA if you want the strongest guarantee.
+Every release is sealed by this action itself. The release page carries `index.js.p7s` and `action.yml.p7s`: Sigill seals (CAdES with an embedded timestamp, post-quantum hybrid with ML-DSA-87) over `dist/index.js` and `action.yml` exactly as they are at the release tag — the files GitHub runs when you use the tag. Download both files at the tag and check them at [sigill.ai/verify](https://sigill.ai/verify). Pin a full commit SHA if you want the strongest guarantee.
